@@ -1,0 +1,56 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- master
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  imageName: 'WeddingContainer'
+
+steps:
+- task: Docker@2
+  inputs:
+    containerRegistry: 'ACR Connection'
+    repository: 'WeddingWebsite'
+    command: 'buildAndPush'
+    Dockerfile: 'Dockerfile'
+    tags: |
+      v1
+- task: Docker@2
+  inputs:
+    containerRegistry: 'ACR Connection'
+    command: 'login'
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'PAYG - James Auchterlonie(2861f6bf-8886-47a9-bc4b-de1a11df0e5f)'
+    scriptType: 'bash'
+    scriptLocation: 'inlinescript'
+    inlineScript: 'az storage account create --name weddingazdevops --resource-group CONTAINER-RG01 --location australiaeast --sku Standard_LRS --kind StorageV2'
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'PAYG - James Auchterlonie(2861f6bf-8886-47a9-bc4b-de1a11df0e5f)'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az storage table create -n weddingtable --account-name weddingazdevops'
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'PAYG - James Auchterlonie(2861f6bf-8886-47a9-bc4b-de1a11df0e5f)'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az container create --resource-group CONTAINER-RG01 --name weddingwebsite --image youracrnamehere.azurecr.io/weddingwebsite:v1 --dns-name-label weddingwebsite --ports 80 --location australiaeast --registry-username youracrname --registry-password $(ACRSECRET) --environment-variables StorageName=$(StorageName) StorageKey=$(StorageKey)'
+
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: 'PAYG - James Auchterlonie(2861f6bf-8886-47a9-bc4b-de1a11df0e5f)'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: 'az container restart --name weddingwebsite --resource-group CONTAINER-RG01'
+
